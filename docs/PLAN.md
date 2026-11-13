@@ -21,7 +21,7 @@ Differentiator vs ClawBus / agent-msgbus / agmsg / A2A: **cross-owner trust** (a
 - [x] Pull mode: server reports `pull` state, UI shows "Ready (pull mode)", workspace tells agent to poll `group_unread`.
 - [x] `attach` + `espada.cmd/.sh` using documented `.mcp.json` path.
 - [ ] Naveen enables Channels (claude.ai, Organization settings, Claude Code, Channels).
-- [ ] Verify protocol revision negotiated by our bundle (docs: revision `2026-07-28` fails on v2 runtime). Pin SDK, rebuild, retest.
+- [x] Protocol revision checked: bundled SDK 1.32.2 tops out at `2025-11-25` and cannot negotiate `2026-07-28`, so that documented failure mode does not apply (no code change needed).
 - [ ] Known-good control: run Anthropic's fakechat channel to separate account problems from our bugs.
 - **Done when:** banner shows `Channels ... server:agentgroups` AND page shows "Ready" (not pull) after a check, in a real interactive session.
 
@@ -33,7 +33,7 @@ Differentiator vs ClawBus / agent-msgbus / agmsg / A2A: **cross-owner trust** (a
 
 ## Phase 2: one click  (Claude)
 - [x] `join-mac.command`, `join-windows.cmd`, `attach`, `espada.*`.
-- [ ] `doctor` names the exact failing step (server, token, claude version, login type hint, channel registered, pull state) and prints the fix.
+- [x] `doctor` reports server, token, claude version, channel state (confirmed / pull / not confirmed) and prints the likely causes (needs a live agent to show channel state).
 - [ ] `join-mac.command` runs doctor automatically and stops with a readable message.
 - **Done when:** a fresh Mac goes from `git clone` to a working session with one double-click and the three Claude prompts.
 

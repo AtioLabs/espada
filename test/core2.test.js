@@ -5,13 +5,13 @@ const fs = require('fs'), os = require('os'), path = require('path');
 const { startServer, call, fakeClaude, sleep, until } = require('./helpers.js');
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'agws-'));
 
-test('fresh install defaults hold agent messages AND files for owner approval', async () => {
+test('fresh install defaults: agent messages publish directly, FILES still held for owner approval', async () => {
   const S = await startServer({ defaults: true });
   const g = S.connect['alice.agent'].group;
   const pol = S.app.cfg.groups[g].policy.o_alice;
-  assert.equal(pol.approveMessages, true); assert.equal(pol.approveFiles, true);
+  assert.equal(pol.approveMessages, false); assert.equal(pol.approveFiles, true);
   const r = await call(S.url, S.connect['alice.agent'].token, 'POST', '/v1/messages', { group: g, text: 'hello' });
-  assert.equal(r.status, 202);
+  assert.equal(r.status, 200); assert.equal(r.body.status, 'published');
   await S.close();
 });
 

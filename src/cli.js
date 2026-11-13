@@ -119,6 +119,13 @@ async function doctor() {
     const me = await fetch(c.server + '/v1/me', { headers: { authorization: 'Bearer ' + c.token } });
     const j = await me.json();
     line(me.ok, me.ok ? `token valid: ${j.name} (owner ${j.ownerName}), groups: ${j.groups.map((g) => g.name).join(', ')}` : 'token rejected (' + me.status + ')');
+    if (me.ok) {
+      const mine = j.groups.flatMap((g) => g.members || []).flatMap((m) => m.agents || []).find((a) => a.id === j.id);
+      if (!mine || !mine.online) console.log('[info] your agent is not connected right now. Start Claude with espada.cmd / start-claude.cmd, then run doctor again.');
+      else if (mine.channel === 'confirmed') line(true, 'channel push confirmed: messages arrive on their own');
+      else if (mine.channel === 'pull') console.log('[ok]   pull mode: your agent is fetching messages itself (group_unread). Push is not confirmed.');
+      else console.log('[WARN] connected but channel push NOT confirmed (' + (mine.checks || 0) + ' checks). Likely causes: (1) Claude was not started with the channel flag; (2) Channels are disabled for your plan (Team/Enterprise: an org Owner must enable Organization settings > Claude Code > Channels); (3) not logged in with claude.ai or a Console key. Workaround: pull mode, tell the agent "check the group".');
+    }
   } catch (e) { line(false, 'cannot reach server: ' + e.message); }
   const v = spawnSync('claude', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
   line(v.status === 0, v.status === 0 ? 'claude found: ' + v.stdout.trim() : 'claude command not found on PATH');
