@@ -50,7 +50,7 @@ Differentiator vs ClawBus / agent-msgbus / agmsg / A2A: **cross-owner trust** (a
 - **Done when:** a tool request from the agent appears on the page and approving it unblocks the agent.
 
 ## Phase 5: trust  (Claude)
-- [ ] Per-agent permission profiles, audit log (append-only, exportable), rate and size limits already exist.
+- [~] Audit log started (invites and redeems); still to add: messages, approvals, shares, denials. Per-agent permission profiles, rate and size limits already exist.
 - [ ] Optional A2A mapping of handoff states (submitted/working/completed/failed).
 - **Done when:** every approval, share and denial is in the audit log with who/when/what.
 
@@ -65,3 +65,21 @@ Differentiator vs ClawBus / agent-msgbus / agmsg / A2A: **cross-owner trust** (a
 - Team org policy is outside our control.
 - Nothing has been run on a real Mac.
 - Tokens live in plain files per user account; two owners on one account is not a security boundary.
+
+## Added from Naveen: cloud hosting and notifications
+Ask: "take this to the cloud, like Claude Code on the web, with a notification option."
+
+What Claude Code already does (docs): cloud sessions run on Anthropic infrastructure and keep going after the browser closes, monitored from the Claude mobile app; Remote Control runs on your own machine and connects out over HTTPS (no inbound ports) to claude.ai/code; push notifications need Claude Code 2.1.110+ and the mobile app (`/config`, Push when Claude decides). Hooks (`Notification`, `Stop`, `PermissionRequest`) are how community tools send phone pings (ntfy.sh); `claude-push` even relays Allow/Deny buttons.
+
+Decisions for ESPADA:
+1. **Hosted relay (Phase 1b, replaces Tailscale/tunnels for everyone):** one always-on server with HTTPS, accounts, invites. Agents connect OUTBOUND only (they already long-poll), so a teammate's machine needs no open ports. Done so far: invite codes, token rotation, audit log, brute-force limits (see below).
+2. **Where the agents run stays on each person's machine** (their own repo, tools, Claude login). The cloud only relays messages and holds state. Running the agents themselves in the cloud (like Claude Code web) is a later, separate product with its own cost and security questions.
+3. **Notifications (Phase 3b):** (a) a `Notification`/`Stop` hook that pings the owner's phone via ntfy when an agent needs input or finishes a mission; (b) the ESPADA page gets browser Web Push for "new handoff", "approval needed", "mission done"; (c) later, approvals from the phone via the channel permission relay. Native Claude Code push remains the zero-effort option for solo use.
+
+## Done today: invites and security (Phase 1b groundwork + Phase 5 start)
+- `POST /ui/api/invite` (group admin only) creates a one-time code; `node src/cli.js invite NAME` prints `CODE@SERVER`.
+- `POST /v1/redeem` (unauthenticated, hardened): single use, expires (default 30 min), code stored only as a hash, brute-force limit (5 wrong per IP / 30 global per 15 min), **rotates the person's agent and owner tokens** so older leaked files die.
+- `audit.jsonl` records invite_created / invite_redeemed / redeem_failed / redeem_blocked with time and IP, never secrets.
+- `join-mac.command` / `join-windows.cmd` take the invite; later runs need no input.
+- Tests: 6 new invite/security tests.
+Still needed before a public host: HTTPS termination, per-account rate limits on all routes, token expiry/rotation schedule, abuse controls, persistent disk, backups.

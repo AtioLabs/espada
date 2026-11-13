@@ -57,6 +57,15 @@ class Store {
   }
 }
 
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function newInviteCode() { // 16 chars of base32 = 80 bits, shown as XXXX-XXXX-XXXX-XXXX
+  const b = crypto.randomBytes(10); let bits = '', out = '';
+  for (const x of b) bits += x.toString(2).padStart(8, '0');
+  for (let i = 0; i < 80; i += 5) out += B32[parseInt(bits.slice(i, i + 5), 2)];
+  return out.match(/.{4}/g).join('-');
+}
+const normCode = (c) => String(c || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+
 function initConfig(dir, ownerNames, groupName, url) {
   const store = new Store(dir);
   if (store.cfg) throw new Error('already initialised in ' + dir);
@@ -100,6 +109,10 @@ function createApp(dir, opts = {}) {
   if (!store.cfg) throw new Error('not initialised: run "node src/server.js init"');
   const cfg = store.cfg;
   if (!cfg.profiles) cfg.profiles = {};
+  if (!cfg.invites) cfg.invites = {}; // sha256('invite:'+code) -> { owner, expires, by }; the code itself is never stored
+  const auditPath = path.join(dir, 'audit.jsonl');
+  const audit = (o) => { try { fs.appendFileSync(auditPath, JSON.stringify({ t: new Date().toISOString(), ...o }) + '\n', { mode: 0o600 }); } catch (_) {} };
+  const redeemFails = { byIp: {}, all: [] };
   for (const a of Object.keys(cfg.agents)) if (!cfg.profiles[a]) cfg.profiles[a] = defaultProfile();
   const clock = opts.now || (() => Date.now());
   const streams = new Map(); // agentId -> Set<{res, sent:Set}>
@@ -355,6 +368,35 @@ function createApp(dir, opts = {}) {
   const pub = path.join(__dirname, '..', 'public');
   const statics = { '/': ['index.html', 'text/html; charset=utf-8'], '/ui.js': ['ui.js', 'text/javascript; charset=utf-8'] };
 
+  // Redeem a one-time invite. Unauthenticated by design, so it is brute-force limited, single use, short lived,
+  // and it ROTATES the person's tokens (anything issued earlier stops working). The code is never stored, only its hash.
+  async function redeem(req, res) {
+    const ip = String(req.socket.remoteAddress || '?'); const t = clock(); const win = 15 * 60 * 1000;
+    redeemFails.all = redeemFails.all.filter((x) => t - x < win);
+    redeemFails.byIp[ip] = (redeemFails.byIp[ip] || []).filter((x) => t - x < win);
+    if (redeemFails.byIp[ip].length >= 5 || redeemFails.all.length >= 30) { audit({ ev: 'redeem_blocked', ip }); return send(res, 429, { error: 'too_many_attempts' }); }
+    let b; try { b = await readBody(req, 2048); } catch (e) { return send(res, e.code || 400, { error: 'bad_request' }); }
+    const key = sha('invite:' + normCode(b.code));
+    const inv = cfg.invites[key];
+    if (!inv || inv.expires < t) {
+      if (inv) { delete cfg.invites[key]; store.saveCfg(); }
+      redeemFails.byIp[ip].push(t); redeemFails.all.push(t); audit({ ev: 'redeem_failed', ip });
+      return send(res, 404, { error: 'invalid_or_expired' });
+    }
+    const owner = cfg.owners[inv.owner]; const agent = agentsOfOwner(inv.owner)[0];
+    const g = Object.values(cfg.groups).find((x) => isMember(inv.owner, x));
+    const server = opts.publicUrl || cfg.publicUrl;
+    if (!owner || !agent || !g || !server) return send(res, 500, { error: 'invite_unusable' });
+    const ot = 'ag_o_' + crypto.randomBytes(24).toString('hex'), at = 'ag_a_' + crypto.randomBytes(24).toString('hex');
+    owner.tokenHash = sha(ot); agent.tokenHash = sha(at);
+    delete cfg.invites[key]; store.saveCfg();
+    audit({ ev: 'invite_redeemed', owner: inv.owner, ip });
+    return send(res, 200, {
+      agent: { server, token: at, owner: owner.id, ownerName: owner.name, agent: agent.id, group: g.id, groupName: g.name },
+      owner: { server, token: ot, owner: owner.id, ownerName: owner.name },
+    });
+  }
+
   async function handle(req, res) {
     const url = new URL(req.url, 'http://x');
     const p = url.pathname;
@@ -364,6 +406,7 @@ function createApp(dir, opts = {}) {
       return res.end(fs.readFileSync(path.join(pub, f)));
     }
     if (req.method === 'GET' && p === '/health') return send(res, 200, { ok: true });
+    if (req.method === 'POST' && p === '/v1/redeem') return redeem(req, res);
     const who = auth(req);
     if (!who) return send(res, 401, { error: 'unauthorized' });
 
@@ -555,6 +598,21 @@ function createApp(dir, opts = {}) {
         for (const a of agentsOfOwner(owner.id)) pushPending(a.id);
         notifyUi();
         return send(res, 200, { ok: true, policy: pol, paused: g.paused });
+      }
+      if (req.method === 'POST' && p === '/ui/api/invite') { // group admin only: one-time invite for a member
+        const b = await readBody(req);
+        const g = Object.values(cfg.groups).find((x) => x.admin === owner.id);
+        if (!g) return send(res, 403, { error: 'admin_only' });
+        const target = Object.values(cfg.owners).find((o) => o.id === b.for || o.name.toLowerCase() === String(b.for || '').toLowerCase());
+        if (!target || !isMember(target.id, g)) return send(res, 404, { error: 'no_such_member' });
+        const minutes = Number.isInteger(b.minutes) ? Math.max(1, Math.min(1440, b.minutes)) : 30;
+        const server = opts.publicUrl || cfg.publicUrl;
+        if (!server) return send(res, 409, { error: 'no_public_url', detail: 'start the host with --public-url first' });
+        const code = newInviteCode();
+        for (const [k, v] of Object.entries(cfg.invites)) if (v.owner === target.id || v.expires < clock()) delete cfg.invites[k]; // one live invite per person
+        cfg.invites[sha('invite:' + normCode(code))] = { owner: target.id, expires: clock() + minutes * 60000, by: owner.id };
+        store.saveCfg(); audit({ ev: 'invite_created', for: target.id, by: owner.id, minutes });
+        return send(res, 200, { code, server, for: target.name, expiresInMinutes: minutes, invite: code + '@' + server });
       }
       let mm;
       if (req.method === 'GET' && (mm = p.match(/^\/ui\/api\/files\/([0-9a-f]{64})$/))) {

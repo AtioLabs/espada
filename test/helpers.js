@@ -12,7 +12,7 @@ async function startServer(opts = {}) {
     for (const g of Object.values(c.groups)) for (const o of Object.keys(g.policy)) g.policy[o].approveMessages = false;
     fs.writeFileSync(cp, JSON.stringify(c));
   }
-  const app = createApp(dir);
+  const app = createApp(dir, opts.appOpts || {});
   await new Promise((r) => app.server.listen(opts.port || 0, '127.0.0.1', r));
   const url = 'http://127.0.0.1:' + app.server.address().port;
   const connect = {};

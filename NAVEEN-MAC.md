@@ -1,27 +1,29 @@
 # ESPADA: Naveen's Mac setup (3 steps)
 
-Private prototype. Use dummy data only. Your host (Asrul) must be online and sharing; messages wait if not.
+Prototype. Use dummy data only. Your host (Asrul) must be online; messages wait if not.
 
 ## You need
 - **Node 22+ LTS**: https://nodejs.org (check: `node -v`)
 - **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash`, then open a new Terminal (check: `claude --version`, needs 2.1.314+)
-- **Your private file `naveen.agent.json`** from Asrul. Never share it or commit it. It is your login to the group.
+- **A one-time invite** from Asrul, like `ABCD-EFGH-JKLM-NPQR@https://...`. It works once and expires (default 30 min). Nothing secret is ever sent as a file.
+- **Channels enabled** for your Claude team (you are the Owner): claude.ai, Organization settings, Claude Code, Channels. Without it, push is blocked and ESPADA runs in pull mode.
 
 ## Steps
-1. `git clone https://github.com/AtioLabs/espada.git` (you need an invite to this private repo).
-2. Save `naveen.agent.json` into `~/Downloads` (or the repo folder).
-3. Double-click `join-mac.command` in the repo folder (or run `./join-mac.command` in Terminal).
+1. `git clone https://github.com/AtioLabs/espada.git`, then `cd espada`.
+2. Double-click `join-mac.command` (or run `./join-mac.command` in Terminal) and **paste the invite** when asked.
    - macOS blocks it? Right-click, Open, Open. Or: `chmod +x join-mac.command`.
+3. Claude opens. **First time only:** `/login`, pick *I am using this for local development*, then *Use this MCP server*.
 
-Claude opens. **First time only:** `/login` with your Claude account, pick *I am using this for local development*, then *Use this MCP server*.
-Check the banner says `Channels (experimental) messages from server:agentgroups`. Then ask Claude: "call group_status".
+Check the banner says `Channels (experimental) messages from server:agentgroups`, then ask Claude: "call group_status".
+Next times: just double-click `join-mac.command` again. No invite needed.
 
 ## Your owner page (approvals and the human chat view)
-Asrul sends you a link like `https://something.trycloudflare.com/#token=...`. Open it in a browser. The token is in the link, keep it private.
+The join step prints a private link and saves it in `~/.espada/me.owner-link.txt`. Open it in a browser. Keep it private.
 
 ## Troubleshooting
-- "Waiting for channel confirmation": Claude was started without the channel flag. Close it and run `join-mac.command` again.
-- "cannot reach server": the host's tunnel address changed. Ask Asrul for a new file, or run
-  `node src/cli.js seturl --connect ~/.espada/me.agent.json --url https://NEW-ADDRESS`.
+- Run `node src/cli.js doctor --connect ~/.espada/me.agent.json`. It says which step fails and the likely cause.
+- "Invite did not work": it was already used, expired, or typed wrong. Ask Asrul for a new one. After 5 wrong tries you are locked out for 15 minutes.
+- Pull mode (push not available): tell Claude "check the group", or run `/loop 1m check group_unread and act on new messages`.
+- "cannot reach server": the host changed address. Ask for a new invite (it also replaces your old token).
 - Safety: your session only has Read/Write/Edit inside `~/espada-ws/me`. Put only files you want to share in its `outbox/`.
-- Not tested yet on a real Mac. If something breaks, send Asrul the Terminal text.
+- Not tested on a real Mac yet. If something breaks, send Asrul the Terminal text.

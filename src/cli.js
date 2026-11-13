@@ -21,7 +21,7 @@ function host() {
     console.log('First run: created group and one identity per owner (' + owners.join(', ') + ').');
   }
   if (arg('public-url')) require('./server.js').exportUrl(dir, url);
-  const app = createApp(dir);
+  const app = createApp(dir, { publicUrl: url });
   const host = arg('host', '127.0.0.1');
   app.server.listen(port, host, () => {
     console.log(`\nAgentGroups server running on http://${host}:${port}   (leave this window open; Ctrl+C stops it)`);
@@ -72,6 +72,40 @@ function workspace() {
   console.log(`Workspace ready: ${dir}\n${loose ? 'WARNING: --no-isolation: this session will load your normal Claude settings/memory and shell tools.\n' : 'Isolated mode (UNVERIFIED until run on a real Claude Code): separate Claude config folder OUTSIDE the workspace at ' + cfgDir + ' (no user memory/CLAUDE.md), no auto memory, only Read/Write/Edit tools, no shell/web, reads and writes blocked outside this folder (needs Claude Code 2.1.314+; start-claude checks). Log in once inside this session with your existing Claude account (each config folder keeps its own login; no new account needed).\n'}\nNext:\n  1. Double-click start-claude.cmd in that folder (Windows) or run start-claude.sh.\n  2. Claude shows a warning about development channels: choose "I am using this for local development".\n  3. Approve the "new MCP server" prompt (agentgroups).\n  4. Check the banner says: Channels (experimental) messages from server:agentgroups ...`);
 }
 
+// invite NAME: (run on the host machine) prints a one-time invite code for a member. Nothing secret is sent by chat or file.
+async function invite() {
+  const who = rest.find((x) => !x.startsWith('--')) || die('usage: invite NAME [--minutes 30] [--as ADMIN] [--port 8787]');
+  const dir = path.resolve(arg('data', path.join(root, 'data')));
+  const admin = arg('as', 'asrul'); const port = arg('port', '8787');
+  const f = path.join(dir, 'connect', admin + '.owner.json');
+  if (!fs.existsSync(f)) die('admin owner file not found: ' + f + ' (use --as NAME for the group admin)');
+  const tok = JSON.parse(fs.readFileSync(f, 'utf8')).token;
+  const r = await fetch(`http://127.0.0.1:${port}/ui/api/invite`, { method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' }, body: JSON.stringify({ for: who, minutes: parseInt(arg('minutes', '30'), 10) }) }).catch(() => null);
+  if (!r) die('host is not running on port ' + port + '. Start it first (host.cmd / share-host.cmd).');
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) die('invite failed: ' + (j.error || r.status) + (j.detail ? ' (' + j.detail + ')' : ''));
+  console.log(`\nInvite for ${j.for} (valid ${j.expiresInMinutes} min, single use):\n\n  ${j.invite}\n`);
+  if (/127\.0\.0\.1|localhost/.test(j.server)) console.log('WARNING: this invite points at ' + j.server + ', which only works on THIS computer. Start the host with --public-url (or share-host.cmd) first.\n');
+  console.log('Send it by message. It is useless after one use or the time limit. Redeeming it also replaces any older token.\nThey run:  join-mac.command  (paste the invite when asked)   or   node src/cli.js redeem "<invite>"');
+}
+
+// redeem INVITE: (run on a teammate's machine) exchanges the one-time code for a connect file. Format: CODE@SERVER
+async function redeem() {
+  const inv = rest.find((x) => !x.startsWith('--')) || die('usage: redeem "CODE@SERVER" [--dir ~/.espada]');
+  const at = inv.indexOf('@'); if (at < 1) die('invite should look like ABCD-EFGH-JKLM-NPQR@https://host');
+  const code = inv.slice(0, at); let server = inv.slice(at + 1).replace(/\/+$/, '');
+  if (!/^https?:\/\//.test(server)) server = 'https://' + server;
+  const dir = path.resolve(arg('dir', path.join(require('os').homedir(), '.espada')));
+  const r = await fetch(server + '/v1/redeem', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }) }).catch((e) => die('cannot reach ' + server + ': ' + e.message));
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 429) die('too many wrong attempts. Wait 15 minutes, then ask for a new invite.');
+  if (!r.ok) die('invite is invalid, expired or already used. Ask for a new one. (' + (j.error || r.status) + ')');
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(dir, 'me.agent.json'), JSON.stringify(j.agent, null, 2), { mode: 0o600 });
+  fs.writeFileSync(path.join(dir, 'me.owner-link.txt'), j.owner.server + '/#token=' + j.owner.token + '\n', { mode: 0o600 });
+  console.log(`Connected as ${j.agent.ownerName}. Saved ${path.join(dir, 'me.agent.json')}.\nYour owner page (keep private): ${j.owner.server}/#token=${j.owner.token}`);
+}
+
 // attach: wire ESPADA into an existing project/worktree (documented .mcp.json form). Run once per project folder.
 function attach() {
   const connect = path.resolve(arg('connect') || die('--connect FILE is required'));
@@ -120,7 +154,7 @@ async function doctor() {
     const j = await me.json();
     line(me.ok, me.ok ? `token valid: ${j.name} (owner ${j.ownerName}), groups: ${j.groups.map((g) => g.name).join(', ')}` : 'token rejected (' + me.status + ')');
     if (me.ok) {
-      const mine = j.groups.flatMap((g) => g.members || []).flatMap((m) => m.agents || []).find((a) => a.id === j.id);
+      const mine = j.groups.flatMap((g) => g.members || []).flatMap((m) => m.agents || []).find((a) => a.id === j.agent);
       if (!mine || !mine.online) console.log('[info] your agent is not connected right now. Start Claude with espada.cmd / start-claude.cmd, then run doctor again.');
       else if (mine.channel === 'confirmed') line(true, 'channel push confirmed: messages arrive on their own');
       else if (mine.channel === 'pull') console.log('[ok]   pull mode: your agent is fetching messages itself (group_unread). Push is not confirmed.');
@@ -143,6 +177,6 @@ function seturl() {
   console.log('Updated ' + connect + ' to point at ' + url + '. A running Claude session picks it up automatically within a minute.');
 }
 
-({ host, workspace, attach, doctor, seturl, precheck }[cmd] || (() => {
+({ host, workspace, attach, invite, redeem, doctor, seturl, precheck }[cmd] || (() => {
   console.log('usage:\n  node src/cli.js host [--port 8787] [--public-url URL] [--host 127.0.0.1]\n  node src/cli.js attach --connect data/connect/NAME.agent.json [--dir PROJECT_FOLDER]   (wire ESPADA into a real project/worktree)\n  node src/cli.js workspace --connect data/connect/NAME.agent.json --dir FOLDER\n  node src/cli.js doctor --connect data/connect/NAME.agent.json\n  node src/cli.js seturl --connect FILE --url https://new-address   (when the host address changes)');
 }))();
