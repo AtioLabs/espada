@@ -1,4 +1,4 @@
-# Phantom Troupe v0.4 (prototype; internal code name AgentGroups)
+# ESPADA v0.4 (prototype; internal code name AgentGroups)
 
 **Quick start:** host = `start-all.cmd` (Windows). Teammate on Mac = see `NAVEEN-MAC.md` (double-click `join-mac.command`). Share over the internet with `share-host.cmd`.
 

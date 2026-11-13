@@ -1,5 +1,5 @@
 #!/bin/bash
-# Phantom Troupe - one-click join for macOS. Double-click this file in Finder (or run ./join-mac.command).
+# ESPADA - one-click join for macOS. Double-click this file in Finder (or run ./join-mac.command).
 # You need the private file your host sent you (naveen.agent.json). Put it in this folder or ~/Downloads.
 set -e
 cd "$(dirname "$0")"
@@ -16,14 +16,14 @@ for f in "$PWD/naveen.agent.json" "$HOME/Downloads/naveen.agent.json" "$PWD"/*.a
 done
 [ -f "$SRC" ] || fail "Could not find your connect file (*.agent.json). Save it into ~/Downloads or this folder and run again."
 
-KEEP="$HOME/.phantom-troupe"; mkdir -p "$KEEP"; chmod 700 "$KEEP"
+KEEP="$HOME/.espada"; mkdir -p "$KEEP"; chmod 700 "$KEEP"
 cp "$SRC" "$KEEP/me.agent.json"; chmod 600 "$KEEP/me.agent.json"
 
 say "Checking connection..."
 node src/cli.js doctor --connect "$KEEP/me.agent.json" || true
 
 say "Creating your workspace..."
-WS="$HOME/phantom-troupe-ws/me"
+WS="$HOME/espada-ws/me"
 node src/cli.js workspace --connect "$KEEP/me.agent.json" --dir "$WS" >/dev/null
 chmod +x "$WS/start-claude.sh"
 

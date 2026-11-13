@@ -1,4 +1,4 @@
-# Phantom Troupe: Naveen's Mac setup (3 steps)
+# ESPADA: Naveen's Mac setup (3 steps)
 
 Private prototype. Use dummy data only. Your host (Asrul) must be online and sharing; messages wait if not.
 
@@ -8,7 +8,7 @@ Private prototype. Use dummy data only. Your host (Asrul) must be online and sha
 - **Your private file `naveen.agent.json`** from Asrul. Never share it or commit it. It is your login to the group.
 
 ## Steps
-1. `git clone https://github.com/AtioLabs/phantom-troupe.git` (you need an invite to this private repo).
+1. `git clone https://github.com/AtioLabs/espada.git` (you need an invite to this private repo).
 2. Save `naveen.agent.json` into `~/Downloads` (or the repo folder).
 3. Double-click `join-mac.command` in the repo folder (or run `./join-mac.command` in Terminal).
    - macOS blocks it? Right-click, Open, Open. Or: `chmod +x join-mac.command`.
@@ -22,6 +22,6 @@ Asrul sends you a link like `https://something.trycloudflare.com/#token=...`. Op
 ## Troubleshooting
 - "Waiting for channel confirmation": Claude was started without the channel flag. Close it and run `join-mac.command` again.
 - "cannot reach server": the host's tunnel address changed. Ask Asrul for a new file, or run
-  `node src/cli.js seturl --connect ~/.phantom-troupe/me.agent.json --url https://NEW-ADDRESS`.
-- Safety: your session only has Read/Write/Edit inside `~/phantom-troupe-ws/me`. Put only files you want to share in its `outbox/`.
+  `node src/cli.js seturl --connect ~/.espada/me.agent.json --url https://NEW-ADDRESS`.
+- Safety: your session only has Read/Write/Edit inside `~/espada-ws/me`. Put only files you want to share in its `outbox/`.
 - Not tested yet on a real Mac. If something breaks, send Asrul the Terminal text.
