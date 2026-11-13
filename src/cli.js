@@ -80,7 +80,8 @@ async function invite() {
   const f = path.join(dir, 'connect', admin + '.owner.json');
   if (!fs.existsSync(f)) die('admin owner file not found: ' + f + ' (use --as NAME for the group admin)');
   const tok = JSON.parse(fs.readFileSync(f, 'utf8')).token;
-  const r = await fetch(`http://127.0.0.1:${port}/ui/api/invite`, { method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' }, body: JSON.stringify({ for: who, minutes: parseInt(arg('minutes', '30'), 10) }) }).catch(() => null);
+  const base = (arg('server') || `http://127.0.0.1:${port}`).replace(/\/+$/, '');
+  const r = await fetch(`${base}/ui/api/invite`, { method: 'POST', headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' }, body: JSON.stringify({ for: who, minutes: parseInt(arg('minutes', '30'), 10) }) }).catch(() => null);
   if (!r) die('host is not running on port ' + port + '. Start it first (host.cmd / share-host.cmd).');
   const j = await r.json().catch(() => ({}));
   if (!r.ok) die('invite failed: ' + (j.error || r.status) + (j.detail ? ' (' + j.detail + ')' : ''));
