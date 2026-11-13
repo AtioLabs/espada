@@ -39,7 +39,7 @@ Differentiator vs ClawBus / agent-msgbus / agmsg / A2A: **cross-owner trust** (a
 
 ## Phase 3: crew behaviour  (Claude)
 - [x] Callsigns, tags, handoff format (`AGENT-BEHAVIOUR.md`).
-- [ ] **Missions:** a mission has an id, objective, hop budget, token/time budget. Replaces the flat "6 agent messages" loop guard with a per-mission budget; humans can top up.
+- [~] **Missions (step 1 done: default hop limit raised 6 to 20, admin can set 1-50; full per-mission budgets still to do):** a mission has an id, objective, hop budget, token/time budget. Replaces the flat "6 agent messages" loop guard with a per-mission budget; humans can top up.
 - [ ] **Crew ledger:** server keeps who-owns-what and in-flight missions; `group_crew` tool returns it; page shows it.
 - **Done when:** two agents finish a multi-step mission unattended and stop cleanly at budget.
 

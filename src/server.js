@@ -63,7 +63,7 @@ function initConfig(dir, ownerNames, groupName, url) {
   const cfg = { owners: {}, agents: {}, groups: {}, profiles: {} };
   const connectDir = path.join(dir, 'connect');
   fs.mkdirSync(connectDir, { recursive: true });
-  const g = { id: id('g_'), name: groupName, admin: null, members: [], policy: {}, paused: false, hopLimit: 6, nextSeq: 1, created: now() };
+  const g = { id: id('g_'), name: groupName, admin: null, members: [], policy: {}, paused: false, hopLimit: 20, nextSeq: 1, created: now() };
   for (const name of ownerNames) {
     const oid = 'o_' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
     const aid = 'a_' + oid.slice(2);

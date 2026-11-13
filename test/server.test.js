@@ -68,6 +68,7 @@ test('loop guard stops agent ping-pong; a human message resets it; pause blocks 
   const s2 = await startServer();
   const a = s2.connect['alice.agent'], b = s2.connect['bob.agent'], ao = s2.connect['alice.owner'];
   const g = a.group; let last = null, blocked = null;
+  s2.app.cfg.groups[g].hopLimit = 6; // default is 20; pin 6 so the guard logic is tested quickly
   for (let i = 0; i < 10; i++) {
     const who = i % 2 ? b : a;
     const r = await call(s2.url, who.token, 'POST', '/v1/messages', { group: g, text: 'ping ' + i, replyTo: last });
