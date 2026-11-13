@@ -1,0 +1,99 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+:root{--bg:#f5f5f7;--surf:#ffffff;--ink:#1c1c1e;--mute:#6c6c72;--line:rgba(60,60,67,.14);--acc:#2f6df6;--acc-ink:#fff;--bub:#ececf0;--warn:#b25b00;--warnbg:#fff3e0;--bad:#c0262d;--ok:#1f8a4c;--sh:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06);
+--c0:#2f6df6;--c1:#1f8a4c;--c2:#a24bd6;--c3:#d4672a;--c4:#0e8a98;--c5:#c23a6b}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--surf:#1c1c1e;--ink:#f2f2f7;--mute:#9a9aa1;--line:rgba(235,235,245,.16);--acc:#4f8bff;--bub:#2c2c2f;--warn:#ffb457;--warnbg:#3a2a12;--bad:#ff6b6f;--ok:#4cc27b;--sh:none}}
+*{box-sizing:border-box}html,body,#app{height:100%}
+body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;border-radius:10px;padding:6px 10px}
+button:focus-visible,textarea:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:3px solid color-mix(in srgb,var(--acc) 55%,transparent);outline-offset:1px}
+.shell{display:grid;grid-template-columns:76px minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:100%}
+.rail{background:var(--surf);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 6px}
+.rail .logo{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:700;margin-bottom:10px}
+.nav{width:62px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px;color:var(--mute);font-size:11px;position:relative}
+.nav svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.nav[aria-current=page]{color:var(--acc);background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.nav .badge{position:absolute;top:4px;right:10px;min-width:16px;height:16px;border-radius:8px;background:var(--bad);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 4px}
+.rail .sp{flex:1}
+.pane{display:flex;flex-direction:column;min-width:0;height:100%}
+.top{display:flex;align-items:center;gap:12px;padding:12px 22px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--surf) 88%,transparent);backdrop-filter:blur(14px)}
+.top h1{font-size:17px;margin:0;font-weight:650}.top .sub{color:var(--mute);font-size:13px}.top .sp{flex:1}
+.presence{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--mute)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--mute);display:inline-block;opacity:.5}.dot.ready{background:var(--ok);opacity:1}.dot.wait{background:var(--warn);opacity:1}
+.content{flex:1;overflow:auto;min-height:0}
+.col{max-width:760px;margin:0 auto;padding:18px 22px}
+.banner{margin:10px auto 0;max-width:716px;background:var(--warnbg);color:var(--warn);padding:10px 14px;border-radius:14px;font-size:14px}
+.day{text-align:center;color:var(--mute);font-size:12px;margin:12px 0 4px}
+.msg{display:flex;gap:10px;margin:10px 0;align-items:flex-end}.msg.me{flex-direction:row-reverse}
+.av{flex:none;width:32px;height:32px;display:grid;place-items:center;font-weight:650;font-size:14px;color:#fff;border-radius:50%;position:relative}
+.av.agent{border-radius:10px}.av.agent::after{content:"AI";position:absolute;right:-5px;bottom:-5px;font-size:8px;font-weight:700;background:var(--surf);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:0 3px;line-height:12px}
+.body{max-width:78%;min-width:0}
+.who{font-size:12px;color:var(--mute);margin:0 8px 2px}.msg.me .who{text-align:right}
+.bubble{background:var(--bub);border-radius:18px;padding:9px 14px;white-space:pre-wrap;word-break:break-word}
+.msg.me .bubble{background:var(--acc);color:var(--acc-ink)}
+.msg.agentmsg .bubble{background:var(--surf);border:1px solid var(--line)}
+.chipline{display:flex;gap:6px;flex-wrap:wrap;margin:3px 8px 0;font-size:12px;color:var(--mute);align-items:center}
+.msg.me .chipline{justify-content:flex-end}
+.tag{border-radius:8px;padding:1px 7px;background:color-mix(in srgb,var(--mute) 14%,transparent);font-size:12px}
+.tag.ask{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.quote{font-size:12px;color:var(--mute);border-left:3px solid var(--line);padding-left:8px;margin:0 8px 3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act{opacity:0;transition:opacity .15s;font-size:12px;color:var(--mute);padding:1px 6px}.msg:hover .act,.act:focus-visible{opacity:1}
+@media(hover:none){.act{opacity:1}}
+.file{display:flex;align-items:center;gap:10px;margin-top:6px;background:var(--surf);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;width:100%;text-align:left}
+.file b{font-weight:600}
+.card{background:var(--surf);border:1px solid var(--line);border-radius:18px;padding:14px 16px;box-shadow:var(--sh);margin:12px 0}
+.card.approve{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.card h3{margin:0 0 4px;font-size:14px;font-weight:650}.card .q{white-space:pre-wrap;word-break:break-word;margin:6px 0 10px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--acc);color:var(--acc-ink);padding:7px 16px;border-radius:999px;font-weight:600}.btn.sec{background:color-mix(in srgb,var(--mute) 16%,transparent);color:var(--ink)}.btn.bad{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.btn[disabled]{opacity:.45;cursor:default}
+.state{font-size:12px;color:var(--mute);margin:3px 8px 0;text-align:right}.msg:not(.me) .state{text-align:left}
+.composer{border-top:1px solid var(--line);background:color-mix(in srgb,var(--surf) 90%,transparent);backdrop-filter:blur(14px);padding:10px 22px calc(10px + env(safe-area-inset-bottom))}
+.cin{max-width:760px;margin:0 auto}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;align-items:center}
+.chips .lbl{font-size:12px;color:var(--mute);flex:none}
+.chip{flex:none;display:flex;gap:7px;align-items:center;padding:3px 12px 3px 4px;border-radius:999px;border:1.5px solid var(--line);background:var(--surf);font-size:13px}
+.chip .av{width:24px;height:24px;font-size:11px}.chip .av.agent::after{display:none}
+.chip[aria-pressed=true]{border-color:var(--acc);background:color-mix(in srgb,var(--acc) 12%,var(--surf));font-weight:600}
+.chip.every{padding-left:12px}
+.reply{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--mute);padding:0 4px 6px}.reply .t{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field{display:flex;gap:8px;align-items:flex-end;position:relative}
+textarea,input[type=text]{width:100%;font:inherit;color:inherit;background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:9px 14px;resize:none}
+.send{flex:none;width:38px;height:38px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;padding:0}.send[disabled]{opacity:.35}
+.send svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.hint{font-size:12px;color:var(--mute);margin:6px 6px 0}
+.pick{position:absolute;bottom:48px;left:0;background:var(--surf);border:1px solid var(--line);border-radius:14px;box-shadow:var(--sh);padding:6px;z-index:5;min-width:220px}
+.pick button{display:flex;gap:8px;align-items:center;width:100%;text-align:left}
+.pick button:hover,.pick button:focus-visible{background:color-mix(in srgb,var(--acc) 10%,transparent)}
+.sheetbg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:grid;place-items:center;z-index:20;padding:16px}
+.sheet{background:var(--surf);border-radius:22px;max-width:480px;width:100%;max-height:90vh;overflow:auto;padding:20px 22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.sheet h2{margin:0 0 10px;font-size:18px}
+.sw{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line)}.sw small{display:block;color:var(--mute);font-size:12px}
+.sw input{width:42px;height:24px;accent-color:var(--acc)}
+.person{display:flex;gap:14px;align-items:flex-start}.person .av{width:44px;height:44px;font-size:18px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.list-h{font-size:13px;color:var(--mute);text-transform:none;margin:18px 4px 6px;font-weight:600}
+.row2{display:grid;gap:8px;margin:8px 0}
+.empty{color:var(--mute);text-align:center;padding:40px 10px}
+#login{max-width:420px;margin:14vh auto;padding:0 20px}
+@media(max-width:720px){.top .sub{display:none}.top h1{font-size:15px}.shell{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}.rail{flex-direction:row;order:2;border-right:0;border-top:1px solid var(--line);padding:4px 6px calc(4px + env(safe-area-inset-bottom));justify-content:space-around}.rail .logo,.rail .sp{display:none}.nav{width:auto;flex:1}.top{padding:10px 14px}.col{padding:12px 14px}.composer{padding:8px 12px}.body{max-width:86%}.pane{height:auto;min-height:0}.shell{height:100%}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.msg,.card{animation:pop .18s ease-out}
+
+body{height:auto;padding:28px 34px}.board{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:1240px;margin:auto}
+.panel{background:var(--surf);border:1px solid var(--line);border-radius:22px;padding:22px}.panel h4{margin:0 0 14px;font:600 12px/1 inherit;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}
+.sw2{display:flex;gap:8px;flex-wrap:wrap}.sw2 div{width:72px}.sw2 i{display:block;height:44px;border-radius:12px;border:1px solid var(--line)}.sw2 span{font-size:11px;color:var(--mute)}
+.title{max-width:1240px;margin:0 auto 18px}.title h1{margin:0;font-size:26px}.title p{margin:4px 0 0;color:var(--mute)}
+.full{grid-column:1/3}.stack>*{margin:0 0 12px}.msg,.card{animation:none!important}.sw2 div{width:84px}
+</style></head><body><div class="title"><h1>AgentGroups design system (proposed sample)</h1><p>Apple-like clarity and care, not an Apple copy. System fonts, one accent, colour only for meaning. This is a sample, not the finished app.</p></div>
+<div class="board">
+<div class="panel"><h4>Type (system font stack)</h4><div style="font-size:26px;font-weight:700">Title 26 / 700</div><div style="font-size:17px;font-weight:650;margin-top:8px">Headline 17 / 650</div><div style="margin-top:8px">Body 15 / 400. Messages are the main content, so they get the largest, calmest text.</div><div style="font-size:12px;color:var(--mute);margin-top:8px">Caption 12. Times, who sent it, delivery state.</div><div class="mono" style="margin-top:8px;color:var(--mute)">Mono 12 - only for ids and file names</div></div>
+<div class="panel"><h4>Colour (light and dark follow the system)</h4><div class="sw2"><div><i style="background:var(--bg)"></i><span>Background</span></div><div><i style="background:var(--surf)"></i><span>Surface</span></div><div><i style="background:var(--acc)"></i><span>Accent</span></div><div><i style="background:var(--bub)"></i><span>Bubble</span></div><div><i style="background:var(--warnbg)"></i><span>Needs attention</span></div><div><i style="background:var(--ok)"></i><span>Ready</span></div></div>
+<h4 style="margin-top:18px">Participants: one colour each</h4><div class="sw2"><div><i style="background:var(--c0)"></i><span>Asrul</span></div><div><i style="background:var(--c1)"></i><span>Naveen</span></div><div><i style="background:var(--c2)"></i><span>Next</span></div><div><i style="background:var(--c3)"></i><span></span></div></div></div>
+<div class="panel"><h4>Who is who</h4><div class="stack"><div class="msg" style="margin:0"><span class="av" style="background:var(--c1)">N</span><div class="body"><div class="who">Naveen · human</div><div class="bubble">A person: round avatar, plain bubble.</div></div></div>
+<div class="msg agentmsg" style="margin:0"><span class="av agent" style="background:var(--c1)">N</span><div class="body"><div class="who">Naveen's agent · agent</div><div class="bubble">An agent: rounded-square avatar with an AI badge, outlined bubble. Same colour as its owner.</div></div></div>
+<div class="msg me" style="margin:0"><span class="av" style="background:var(--c0)">A</span><div class="body"><div class="who">You · human</div><div class="bubble">Your own messages sit on the right in the accent colour.</div></div></div></div></div>
+<div class="panel"><h4>Choosing who to ask: tap, never type a name</h4><div class="chips"><span class="lbl">Ask</span><button class="chip every" aria-pressed="false">Everyone</button><button class="chip" aria-pressed="true"><span class="av agent" style="background:var(--c1)">N</span>Naveen's agent</button><button class="chip" aria-pressed="false"><span class="av agent" style="background:var(--c0)">A</span>Your agent</button></div>
+<div class="field"><textarea rows="1" placeholder="Message Naveen's agent"></textarea><button class="send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button></div><div class="hint">Or tap Reply on any message to ask its author. Everyone in the group sees every message.</div></div>
+<div class="panel"><h4>Approval card (in the conversation)</h4><div class="card approve" style="margin:0"><h3>Naveen's agent wants to share a file to the group</h3><div class="hint">Nothing is sent until you approve. Everyone in the group will see it.</div><div class="q">Handoff summary for the billing PR (dummy)</div><div class="btnrow"><button class="btn">Approve and send</button><button class="btn bad">Reject</button></div></div></div>
+<div class="panel"><h4>States (only what the server really knows)</h4><div class="stack"><div class="presence"><span class="dot ready"></span>Ready - channel confirmed</div><div class="presence"><span class="dot wait"></span>Waiting for channel check - messages are held, not lost</div><div class="presence"><span class="dot"></span>Offline - messages wait for it</div><div class="state" style="text-align:left;margin:0">handed to its session 10:34 AM . replied 10:35 AM</div><div class="banner" style="margin:0">Your agent is offline. Messages wait for it.</div></div></div>
+</div></body></html>

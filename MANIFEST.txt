@@ -1,0 +1,4 @@
+AgentGroups v0.4 manifest
+Tests: 39 pass (server 10, qa 4, core2 8, cli 3, channel 7, ui 7 headless-Chrome). Fake MCP client, Linux only.
+NOT tested: real Claude Code, Windows, Mac, cloudflared on Windows/Mac, two real computers.
+UI preview: shots/v6-*.png (dummy data, redesign: neutral surfaces, one accent, chips for targeting).
