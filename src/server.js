@@ -126,10 +126,12 @@ function createApp(dir, opts = {}) {
   const agentsOfOwner = (oid) => Object.values(cfg.agents).filter((a) => a.ownerId === oid);
   const isMember = (oid, g) => g.members.includes(oid);
   const agentState = {}; // aid -> { session, confirmed: bool, lastPoll: ms }
+  const lastPull = {}; // aid -> ms of last group_unread/group_history call (pull mode: works without channel push)
   const presence = (aid) => {
     const st = agentState[aid];
     const online = !!st && clock() - st.lastPoll < 45000;
-    return { online, channel: online ? (st.confirmed ? 'confirmed' : 'waiting_for_confirmation') : 'offline', lastSeen: lastSeen[aid] || null, checks: online ? st.checks || 0 : 0 };
+    const pulling = !!lastPull[aid] && clock() - lastPull[aid] < 180000;
+    return { online, channel: online ? (st.confirmed ? 'confirmed' : pulling ? 'pull' : 'waiting_for_confirmation') : 'offline', lastSeen: lastSeen[aid] || null, checks: online ? st.checks || 0 : 0 };
   };
 
   function notifyUi() { for (const r of uiClients) { try { r.write('data: changed\n\n'); } catch (_) {} } }
@@ -408,6 +410,7 @@ function createApp(dir, opts = {}) {
         return send(res, 200, { ok: true });
       }
       if (req.method === 'GET' && p === '/v1/unread') {
+        lastPull[agent.id] = clock(); notifyUi();
         const list = [...store.msgs.values()].filter((m) => m.status === 'published' && m.rs && m.rs[agent.id] && ['queued', 'emitted'].includes(m.rs[agent.id].s) && clock() - Date.parse(m.publishedAt) < DAY).sort((a, b) => a.seq - b.seq);
         return send(res, 200, { messages: list.map((m) => ({ ...view(m), state: m.rs[agent.id].s })) });
       }

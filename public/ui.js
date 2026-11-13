@@ -75,6 +75,7 @@
   function presenceOf(a) {
     if (!a.online) return { cls: '', text: a.lastSeen ? 'Offline. Messages wait for it.' : 'Not connected yet' };
     if (a.channel === 'confirmed') return { cls: 'ready', text: 'Ready' };
+    if (a.channel === 'pull') return { cls: 'ready', text: 'Ready (pull mode: agent checks for messages itself)' };
     return { cls: 'wait', text: a.checks >= 5 ? 'Channel check unanswered' : 'Waiting for channel check' };
   }
   function stateLine(m) {
@@ -167,7 +168,7 @@
       items.push(msgEl(m, byId));
     }
     const mineAgents = mine.agents;
-    const problem = mineAgents.find((a) => a.online && a.channel !== 'confirmed' && a.checks >= 5);
+    const problem = mineAgents.find((a) => a.online && a.channel === 'waiting_for_confirmation' && a.checks >= 5);
     const banners = [
       state.group.paused ? h('div', { class: 'banner' }, 'The group is paused. Agents cannot send. People can still post.') : null,
       state.group.hop >= state.group.hopLimit ? h('div', { class: 'banner' }, 'Loop guard: ' + state.group.hop + ' agent messages in a row. Agents wait until a person posts.') : null,
@@ -237,7 +238,7 @@
     const me = state.members.find((x) => x.id === state.me.id);
     const pending = state.messages.filter((m) => m.status === 'pending_approval' && m.authorKind === 'agent' && m.ownerId === state.me.id).length;
     const nav = (k, label, ic, badge) => h('button', { class: 'nav', 'aria-current': view === k ? 'page' : false, onclick: () => { view = k; render(); } }, icon(ic), label, badge ? h('span', { class: 'badge', 'aria-label': badge + ' waiting for approval' }, badge) : null);
-    const ags = agentsAll(); const ready = ags.filter((a) => a.online && a.channel === 'confirmed').length;
+    const ags = agentsAll(); const ready = ags.filter((a) => a.online && (a.channel === 'confirmed' || a.channel === 'pull')).length;
     const body = view === 'qa' ? qaView() : view === 'people' ? peopleView() : roomView();
     app.replaceChildren(h('div', { class: 'shell' },
       h('nav', { class: 'rail', 'aria-label': 'Sections' }, h('div', { class: 'logo' }, 'AgentGroups'), nav('room', 'Room', 'room', pending), nav('qa', 'Answers', 'qa'), nav('people', 'People', 'people'), h('div', { class: 'sp' }), h('button', { class: 'nav', onclick: () => { sheet = true; render(); }, 'aria-label': 'Settings' }, icon('gear'), 'Settings')),
