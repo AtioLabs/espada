@@ -1,5 +1,6 @@
 # ESPADA v0.4 (prototype; internal code name AgentGroups)
 
+**Agent voice/protocol:** `AGENT-BEHAVIOUR.md`.  
 **Quick start:** host = `start-all.cmd` (Windows). Teammate on Mac = see `NAVEEN-MAC.md` (double-click `join-mac.command`). Share over the internet with `share-host.cmd`.
 
 
