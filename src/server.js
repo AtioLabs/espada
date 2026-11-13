@@ -138,7 +138,13 @@ function createApp(dir, opts = {}) {
   const published = (gid) => groupMsgs(gid).filter((m) => m.status === 'published').sort((a, b) => a.seq - b.seq);
   const agentsOfOwner = (oid) => Object.values(cfg.agents).filter((a) => a.ownerId === oid);
   const isMember = (oid, g) => g.members.includes(oid);
-  const agentState = {}; // aid -> { session, confirmed: bool, lastPoll: ms }
+  // aid -> { session (latest), confirmed (any session), checks, lastPoll, sessions: { sid: { confirmed, checks, lastPoll } } }
+  // Several sessions of one agent can be alive at once (a second Claude window, a leftover process); each is tracked on its own
+  // so one cannot overwrite the other's channel confirmation.
+  const agentState = {};
+  const sessConfirmed = (aid, sid) => !!(agentState[aid] && agentState[aid].sessions[sid] && agentState[aid].sessions[sid].confirmed);
+  // alive = it has a poll open right now, or polled within the last 1.5s (the gap between two polls). A closed window drops out fast.
+  const sessionAlive = (aid, sid) => [...(streams.get(aid) || [])].some((w) => w.session === sid) || !!(agentState[aid] && agentState[aid].sessions[sid] && clock() - agentState[aid].sessions[sid].lastPoll < 1500);
   const lastPull = {}; // aid -> ms of last group_unread/group_history call (pull mode: works without channel push)
   const presence = (aid) => {
     const st = agentState[aid];
@@ -331,11 +337,11 @@ function createApp(dir, opts = {}) {
     const ag = cfg.agents[agentId];
     const g = Object.values(cfg.groups).filter((x) => isMember(ag.ownerId, x));
     if (g.some((x) => x.policy[ag.ownerId] && x.policy[ag.ownerId].muted)) return [];
-    const st = agentState[agentId];
-    if (!st || st.session !== session || !st.confirmed) return [];
+    if (!sessConfirmed(agentId, session)) return [];
     const all = [...store.msgs.values()].filter((m) => m.status === 'published' && m.rs && m.rs[agentId]);
     const fresh = all.filter((m) => m.rs[agentId].s === 'queued');
-    const redo = all.filter((m) => m.rs[agentId].s === 'emitted' && m.rs[agentId].session !== session && clock() - Date.parse(m.publishedAt) < DAY).sort((a, b) => a.seq - b.seq).slice(-20);
+    // redeliver only if the session it was handed to is gone (not just another live window of the same agent)
+    const redo = all.filter((m) => m.rs[agentId].s === 'emitted' && m.rs[agentId].session !== session && !sessionAlive(agentId, m.rs[agentId].session) && clock() - Date.parse(m.publishedAt) < DAY).sort((a, b) => a.seq - b.seq).slice(-20);
     return [...redo.map((m) => ({ m, re: true })), ...fresh.map((m) => ({ m, re: false }))].sort((x, y) => x.m.group.localeCompare(y.m.group) || x.m.seq - y.m.seq);
   }
   function respondPoll(w, list) {
@@ -347,7 +353,7 @@ function createApp(dir, opts = {}) {
   function pushPending(agentId) {
     for (const w of [...(streams.get(agentId) || [])]) {
       const list = pendingFor(agentId, w.session);
-      if (list.length) respondPoll(w, list);
+      if (list.length) { respondPoll(w, list); break; } // hand it to ONE live session, not every window of the same agent
     }
   }
 
@@ -426,29 +432,37 @@ function createApp(dir, opts = {}) {
       if (req.method === 'GET' && p === '/v1/poll') {
         const session = String(url.searchParams.get('session') || '').slice(0, 64);
         if (!session) return send(res, 400, { error: 'session_required' });
-        const prev = agentState[agent.id];
-        agentState[agent.id] = { session, confirmed: !!(prev && prev.session === session && prev.confirmed) || url.searchParams.get('confirmed') === '1', checks: parseInt(url.searchParams.get('checks') || '0', 10) || 0, lastPoll: clock() };
-        if (!prev || prev.session !== session) notifyUi();
+        const sessions = agentState[agent.id] ? agentState[agent.id].sessions : {};
+        const isNew = !sessions[session];
+        const cur = sessions[session] || { confirmed: false, checks: 0 };
+        cur.confirmed = cur.confirmed || url.searchParams.get('confirmed') === '1';
+        cur.checks = parseInt(url.searchParams.get('checks') || '0', 10) || 0;
+        cur.lastPoll = clock();
+        sessions[session] = cur;
+        for (const [sid, s] of Object.entries(sessions)) if (clock() - s.lastPoll > 10 * 60000) delete sessions[sid];
+        agentState[agent.id] = { session, sessions, confirmed: Object.values(sessions).some((s) => s.confirmed), checks: cur.checks, lastPoll: clock() };
+        if (isNew) notifyUi();
         const wait = Math.min(parseInt(url.searchParams.get('wait') || '25', 10) || 0, 30) * 1000;
         const w = { res, agentId: agent.id, session, timer: null };
         if (!streams.has(agent.id)) streams.set(agent.id, new Set());
         // a newer poll from the same session replaces older ones
-        for (const o of [...streams.get(agent.id)]) { clearTimeout(o.timer); streams.get(agent.id).delete(o); try { o.res.writeHead(200, { 'content-type': 'application/json' }); o.res.end(JSON.stringify({ messages: [], confirmed: agentState[agent.id].confirmed })); } catch (_) {} }
+        for (const o of [...streams.get(agent.id)]) { if (o.session !== session) continue; clearTimeout(o.timer); streams.get(agent.id).delete(o); try { o.res.writeHead(200, { 'content-type': 'application/json' }); o.res.end(JSON.stringify({ messages: [], confirmed: sessConfirmed(agent.id, session) })); } catch (_) {} }
         const list = pendingFor(agent.id, session);
         if (list.length || !wait) {
           res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-          return res.end(JSON.stringify({ messages: list.map(({ m, re }) => ({ ...view(m), redelivered: re })), confirmed: agentState[agent.id].confirmed }));
+          return res.end(JSON.stringify({ messages: list.map(({ m, re }) => ({ ...view(m), redelivered: re })), confirmed: sessConfirmed(agent.id, session) }));
         }
         streams.get(agent.id).add(w);
-        w.timer = setTimeout(() => { streams.get(agent.id).delete(w); agentState[agent.id].lastPoll = clock(); res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ messages: [], confirmed: agentState[agent.id].confirmed })); }, wait);
+        w.timer = setTimeout(() => { streams.get(agent.id).delete(w); agentState[agent.id].lastPoll = clock(); if (agentState[agent.id].sessions[session]) agentState[agent.id].sessions[session].lastPoll = clock(); res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }); res.end(JSON.stringify({ messages: [], confirmed: sessConfirmed(agent.id, session) })); }, wait);
         req.on('close', () => { clearTimeout(w.timer); streams.get(agent.id).delete(w); });
         return;
       }
       if (req.method === 'POST' && p === '/v1/channel-confirm') {
         const b = await readBody(req);
         const st = agentState[agent.id];
-        if (!st || st.session !== b.session) return send(res, 409, { error: 'unknown_session' });
-        st.confirmed = true; notifyUi();
+        const s = st && st.sessions[b.session];
+        if (!s) return send(res, 409, { error: 'unknown_session' });
+        s.confirmed = true; st.confirmed = true; notifyUi();
         pushPending(agent.id);
         return send(res, 200, { ok: true });
       }

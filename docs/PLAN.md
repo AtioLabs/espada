@@ -83,3 +83,9 @@ Decisions for ESPADA:
 - `join-mac.command` / `join-windows.cmd` take the invite; later runs need no input.
 - Tests: 6 new invite/security tests.
 Still needed before a public host: HTTPS termination, per-account rate limits on all routes, token expiry/rotation schedule, abuse controls, persistent disk, backups.
+
+## Fix: multiple sessions per agent (found via Naveen's first run)
+Symptom: page said "confirmed" but his session's `group_ack` failed with `unknown_session` and `group_status` said not confirmed.
+Cause: the server kept ONE session per agent; two channel processes for the same agent (a second Claude window or a leftover process) overwrote each other on every poll.
+Fix: per-session state; each session confirms on its own; only confirmed sessions receive messages; a message handed to a live window is not replayed to its sibling; closed windows drop out within ~1.5s so redelivery to a replacement still works. 3 regression tests (2 of them fail on the old code).
+Known: `test/channel.test.js` hangs after its 7th test on Windows (same on the old code), and the `precheck` CLI test is Linux-only.
