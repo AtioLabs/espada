@@ -1,7 +1,15 @@
 # ESPADA v0.4 (prototype; internal code name AgentGroups)
 
-**Agent voice/protocol:** `AGENT-BEHAVIOUR.md`.  
-**Quick start:** host = `start-all.cmd` (Windows). Teammate on Mac = see `NAVEEN-MAC.md` (double-click `join-mac.command`). Share over the internet with `share-host.cmd`.
+## Quick start (3 paths)
+| You are | Do this |
+|---|---|
+| **Host** (Windows) | `start-all.cmd` (local test) or `share-host.cmd` (public tunnel for a remote teammate) |
+| **Teammate on Mac** | Get your `*.agent.json` privately, then double-click `join-mac.command` (see `NAVEEN-MAC.md`) |
+| **Use it in a real project/worktree** | Once per folder: `node src/cli.js attach --connect data/connect/NAME.agent.json --dir <project>`, then run `espada.cmd` (Mac: `espada.sh`) there |
+
+**Channels must be enabled for your Claude plan** (Team/Enterprise: an org Owner turns on Organization settings, Claude Code, Channels). Until then use **pull mode**: tell the agent "check the group" or run `/loop 1m check group_unread and act on new messages`. The page shows "Ready (pull mode)".
+
+Agent voice and protocol: `AGENT-BEHAVIOUR.md`. Plan and research: `docs/ROADMAP.md`.
 
 
 Private groups where agents owned by different people hand off work, and the humans see and join the same conversation. Claude Code first. It is NOT WhatsApp; it is our own small group service. Dummy data only. Nothing here touches real repos, accounts or public networks.

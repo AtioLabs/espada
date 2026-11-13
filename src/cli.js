@@ -72,6 +72,31 @@ function workspace() {
   console.log(`Workspace ready: ${dir}\n${loose ? 'WARNING: --no-isolation: this session will load your normal Claude settings/memory and shell tools.\n' : 'Isolated mode (UNVERIFIED until run on a real Claude Code): separate Claude config folder OUTSIDE the workspace at ' + cfgDir + ' (no user memory/CLAUDE.md), no auto memory, only Read/Write/Edit tools, no shell/web, reads and writes blocked outside this folder (needs Claude Code 2.1.314+; start-claude checks). Log in once inside this session with your existing Claude account (each config folder keeps its own login; no new account needed).\n'}\nNext:\n  1. Double-click start-claude.cmd in that folder (Windows) or run start-claude.sh.\n  2. Claude shows a warning about development channels: choose "I am using this for local development".\n  3. Approve the "new MCP server" prompt (agentgroups).\n  4. Check the banner says: Channels (experimental) messages from server:agentgroups ...`);
 }
 
+// attach: wire ESPADA into an existing project/worktree (documented .mcp.json form). Run once per project folder.
+function attach() {
+  const connect = path.resolve(arg('connect') || die('--connect FILE is required'));
+  const proj = path.resolve(arg('dir') || process.cwd());
+  const share = path.resolve(arg('share', path.join(root, 'share')));
+  const chan = path.join(root, 'dist', 'channel.cjs');
+  if (!fs.existsSync(chan)) die('dist/channel.cjs missing.');
+  if (!fs.existsSync(connect)) die('connect file not found: ' + connect);
+  fs.mkdirSync(path.join(share, 'outbox'), { recursive: true });
+  fs.mkdirSync(path.join(share, 'inbox'), { recursive: true });
+  const f = path.join(proj, '.mcp.json');
+  let j = {};
+  if (fs.existsSync(f)) { try { j = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { die(f + ' exists but is not valid JSON. Fix or move it first; not touching it.'); } }
+  j.mcpServers = j.mcpServers || {};
+  j.mcpServers.agentgroups = { command: 'node', args: [chan], env: { AG_CONNECT: connect, AG_WORKSPACE: share } };
+  fs.writeFileSync(f, JSON.stringify(j, null, 2));
+  // keep the local .mcp.json out of the project's git (it holds a local path, not a token, but is machine-specific)
+  const g = spawnSync('git', ['-C', proj, 'rev-parse', '--git-path', 'info/exclude'], { encoding: 'utf8' });
+  if (g.status === 0) {
+    const ex = path.resolve(proj, g.stdout.trim());
+    try { const cur = fs.existsSync(ex) ? fs.readFileSync(ex, 'utf8') : ''; if (!/^\.mcp\.json$/m.test(cur)) { fs.mkdirSync(path.dirname(ex), { recursive: true }); fs.appendFileSync(ex, (cur && !cur.endsWith('\n') ? '\n' : '') + '.mcp.json\n'); } } catch (_) {}
+  }
+  console.log(`ESPADA attached to ${proj}\n  .mcp.json updated (other servers kept). Share folder: ${share}\n\nStart Claude in that folder with the channel on:\n  Windows: ${path.join(root, 'espada.cmd')}\n  Mac:     ${path.join(root, 'espada.sh')}\nFirst time: accept "I am using this for local development" and "Use this MCP server".\nChannels must be enabled for your Claude plan (Team/Enterprise: an org Owner turns it on). Until then use pull mode: say "check the group".`);
+}
+
 function versionOk(out) {
   const m = /(\d+)\.(\d+)\.(\d+)/.exec(String(out)); if (!m) return false;
   const [a, b, c] = [+m[1], +m[2], +m[3]];
@@ -111,6 +136,6 @@ function seturl() {
   console.log('Updated ' + connect + ' to point at ' + url + '. A running Claude session picks it up automatically within a minute.');
 }
 
-({ host, workspace, doctor, seturl, precheck }[cmd] || (() => {
-  console.log('usage:\n  node src/cli.js host [--port 8787] [--public-url URL] [--host 127.0.0.1]\n  node src/cli.js workspace --connect data/connect/NAME.agent.json --dir FOLDER\n  node src/cli.js doctor --connect data/connect/NAME.agent.json\n  node src/cli.js seturl --connect FILE --url https://new-address   (when the host address changes)');
+({ host, workspace, attach, doctor, seturl, precheck }[cmd] || (() => {
+  console.log('usage:\n  node src/cli.js host [--port 8787] [--public-url URL] [--host 127.0.0.1]\n  node src/cli.js attach --connect data/connect/NAME.agent.json [--dir PROJECT_FOLDER]   (wire ESPADA into a real project/worktree)\n  node src/cli.js workspace --connect data/connect/NAME.agent.json --dir FOLDER\n  node src/cli.js doctor --connect data/connect/NAME.agent.json\n  node src/cli.js seturl --connect FILE --url https://new-address   (when the host address changes)');
 }))();
